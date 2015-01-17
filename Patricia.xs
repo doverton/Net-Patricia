@@ -13,6 +13,9 @@ extern "C" {
 #include <netinet/in.h>
 #include "libpatricia/patricia.h"
 
+u_char *prefix_tochar (prefix_t * prefix);
+int comp_with_mask(void *addr, void *dest, u_int mask);
+
 /* frozen stuff is frozen in network byte order */
 struct frozen_node
 {
@@ -362,6 +365,42 @@ climb_inorder(tree, ...)
                 n = patricia_walk_inorder_perl(tree->head, func);
 		RETVAL = n;
 	OUTPUT:	
+		RETVAL
+
+size_t
+_climb_within(tree, family, addr, bits, func)
+	Net::Patricia			tree
+	int				family
+	char *				addr
+	int				bits
+	SV *				func
+	PREINIT:
+		size_t n = 0;
+		prefix_t prefix;
+		patricia_node_t *from = NULL;
+		patricia_node_t *node = NULL;
+	CODE:
+		Fill_Prefix(prefix, family, addr, bits, tree->maxbits);
+		if (from = patricia_search_best(tree, &prefix)) {
+			PATRICIA_WALK (from, node) {
+				if (node->prefix->bitlen <= bits ||
+					!comp_with_mask(prefix_tochar(&prefix),
+					prefix_tochar(node->prefix), bits)) {
+					if (n > 0) {
+						PATRICIA_WALK_BREAK;
+					}
+				} else {
+					PUSHMARK(SP);
+					XPUSHs(sv_mortalcopy((SV *)node->data));
+					PUTBACK;
+					perl_call_sv(func, G_VOID|G_DISCARD);
+					SPAGAIN;
+					n++;
+				}
+			} PATRICIA_WALK_END;
+		}
+		RETVAL = n;
+	OUTPUT:
 		RETVAL
 
 void

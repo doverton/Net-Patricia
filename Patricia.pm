@@ -105,6 +105,12 @@ sub remove_string {
   $self->remove($self->_ip_bits($str))
 }
 
+sub climb_within_string {
+  croak "climb_within_string: wrong number of args" if (@_ < 2);
+  my ($self,$str,$func) = @_;
+  $self->climb_within($self->_ip_bits($str), $func);
+}
+
 BEGIN {
   eval {
     my $class = 'Net::CIDR::Lite';
@@ -225,6 +231,17 @@ sub remove_integer {
   $self->SUPER::_remove(AF_INET, pack("N",$num), $bits);
 }
 
+sub climb_within {
+  croak "climb_within: wrong number of args" if (@_ < 2 || @_ > 4);
+  my ($self, $ip, $bits, $func) = @_;
+  my $packed = inet_aton($ip);
+  croak("invalid key") unless (defined $packed);
+  $bits = 32 if (@_ < 3);
+  $self->SUPER::_climb_within(AF_INET, $packed, $bits, sub {
+    $func->(@_) if (defined $func);
+  });
+}
+
 ##
 ## AF_INET6
 ##
@@ -310,6 +327,17 @@ sub remove_integer {
   my ($self, $num, $bits) = @_;
   $bits = 128 if (@_ < 3);
   $self->SUPER::_remove(AF_INET6, pack("N",$num), $bits);
+}
+
+sub climb_within {
+  croak "branch: wrong number of args" if (@_ < 2 || @_ > 4);
+  my ($self, $ip, $bits, $func) = @_;
+  my $packed = inet_pton(AF_INET6, $ip);
+  croak("invalid key") unless (defined $packed);
+  $bits = 128 if (@_ < 3);
+  $self->SUPER::_climb_within(AF_INET6, $packed, $bits, sub {
+    $func->(@_) if (defined $func);
+  });
 }
 
 1;
@@ -530,6 +558,24 @@ prudent to have your subroutine return a non-zero value.
 
 This method is called climb() rather than walk() because climbing trees
 (and therfore tries) is a more popular pass-time than walking them.
+
+=item B<climb_within_string>
+
+   $pt->climb_within_string(key_string, [CODEREF]);
+
+This method first matches the node as per the match_string method.
+If a matching node is found, it then visits all nodes that lie
+within the subnet specified by key_string (this does not include
+the key_string subnet itself).
+
+The CODEREF argument is optional.  It is a perl code reference used to
+specify a user-defined subroutine to be called when visiting each
+node.  The node's user data will be passed as the sole argument to that
+subroutine.
+
+This method returns the number of nodes successfully visited while
+climbing the Trie.  That is, without a CODEREF argument, it counts
+the number of nodes within the matched subnet.
 
 =back
 
