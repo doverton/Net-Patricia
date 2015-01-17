@@ -374,28 +374,29 @@ _climb_within(tree, family, addr, bits, func)
 	char *				addr
 	int				bits
 	SV *				func
+	PROTOTYPE: $$$$
 	PREINIT:
 		size_t n = 0;
 		prefix_t prefix;
 		patricia_node_t *from = NULL;
 		patricia_node_t *node = NULL;
+		int exact;
 	CODE:
 		Fill_Prefix(prefix, family, addr, bits, tree->maxbits);
 		if (from = patricia_search_best(tree, &prefix)) {
+			exact = from->prefix->bitlen == bits;
+
 			PATRICIA_WALK (from, node) {
-				if (node->prefix->bitlen <= bits ||
-					!comp_with_mask(prefix_tochar(&prefix),
-					prefix_tochar(node->prefix), bits)) {
-					if (n > 0) {
-						PATRICIA_WALK_BREAK;
-					}
-				} else {
+				if (node != from && (exact || comp_with_mask(addr,
+						prefix_tochar(node->prefix), bits))) {
 					PUSHMARK(SP);
 					XPUSHs(sv_mortalcopy((SV *)node->data));
 					PUTBACK;
 					perl_call_sv(func, G_VOID|G_DISCARD);
 					SPAGAIN;
 					n++;
+				} else if (n > 0) {
+					PATRICIA_WALK_BREAK;
 				}
 			} PATRICIA_WALK_END;
 		}

@@ -237,9 +237,7 @@ sub climb_within {
   my $packed = inet_aton($ip);
   croak("invalid key") unless (defined $packed);
   $bits = 32 if (@_ < 3);
-  $self->SUPER::_climb_within(AF_INET, $packed, $bits, sub {
-    $func->(@_) if (defined $func);
-  });
+  $self->SUPER::_climb_within(AF_INET, $packed, $bits, $func || sub {});
 }
 
 ##
@@ -335,9 +333,7 @@ sub climb_within {
   my $packed = inet_pton(AF_INET6, $ip);
   croak("invalid key") unless (defined $packed);
   $bits = 128 if (@_ < 3);
-  $self->SUPER::_climb_within(AF_INET6, $packed, $bits, sub {
-    $func->(@_) if (defined $func);
-  });
+  $self->SUPER::_climb_within(AF_INET6, $packed, $bits, $func || sub {});
 }
 
 1;
